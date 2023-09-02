@@ -4,8 +4,7 @@ project(netlinux VERSION 0.1
                  DESCRIPTION "Socket programming for RPi microcomputer")
 
 set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h
-                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/SocketData.h)
+                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h)
 
 set(LIBS)
 

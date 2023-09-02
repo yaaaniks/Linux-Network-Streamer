@@ -21,8 +21,9 @@
 #include <mutex>
 #include <thread>
 
-#include "SocketData.h"
 #include "NetHandlerInterface.hpp"
+
+#define COUNT_REQUEST 5
 
 namespace NetLinux
 {
@@ -45,55 +46,94 @@ namespace NetLinux
         ResourceError,
         NetConfigurationStatusReturn
     };
+
+    enum Protocol {
+        TCP,
+        UDP
+    };
     
     /********************************************Client********************************************/
-    template<int bufferSize>
+    template<enum Protocol>
     class NetworkClient
     {
     private:
-        int m_status, m_valRead, m_port, m_fdClient = 0;
-        std::string m_ip;
+        int m_status, m_valRead, m_port, m_bufferSize, m_fdClient = 0;
         struct sockaddr_in m_servAddr;
-        uint8_t m_rxBuffer[sizeof(StandDataPacket)];
+        uint8_t *m_rxBuffer;
+        NetHandlerInterface *m_neth;
+
+        std::string m_ip;
         std::mutex m_bufferMutex;
-        
-        void run()
-        {
+        std::thread m_thread;
+        std::atomic_bool m_isRunning {false}, m_isConnected {false};
 
-        }
-
-        StatusReturn receiveData(uint8_t *userBuffer, size_t bytesToReceive)
+        void start() 
         {
-            std::lock_guard<std::mutex> lock(m_bufferMutex);
-            int valRead = read(m_fdClient, m_rxBuffer, bytesToReceive); //recv
-            if (valRead > 0) {
-                memcpy(userBuffer, m_rxBuffer, bytesToReceive);
-                return StatusReturn::Success;
+            if (!m_isRunning) {
+                m_thread = std::thread(&NetworkClient::run, this);
+                m_isRunning = true;
             }
-            return StatusReturn::Success;
         }
-    public:
-        explicit NetworkClient(const std::string& ip, int port) : m_ip(ip), m_port(port)
+
+        void stop() 
         {
+            if (m_isRunning) {
+                m_thread.join();
+                m_isRunning = false;
+            }
+        }
+
+    public:
+        explicit NetworkClient(NetHandlerInterface *neth, const std::string &ip, int port, int bufferSize) : 
+            m_neth(neth), m_ip(ip), m_port(port), m_bufferSize(bufferSize)
+        {
+            if (m_bufferSize > 0)
+                m_rxBuffer = new uint8_t[m_bufferSize];
+            else 
+                throw std::runtime_error("Invalid buffer size");
+                
             if ((m_fdClient = socket(AF_INET, SOCK_STREAM, 0)) < 0)
                 throw std::runtime_error("Failed to open socket!");
 
             m_servAddr.sin_family = AF_INET;
             m_servAddr.sin_port = htons(m_port);
             if (inet_pton(AF_INET, m_ip.c_str(), &m_servAddr.sin_addr) <= 0)
-                throw std::runtime_error("\nInvalid address / Address not supported \n");
+                throw std::runtime_error("Invalid address / Address not supported");
         }
         
         ~NetworkClient()
         {
             this->disconnect();
+            delete[] m_rxBuffer;
         }
         
+        StatusReturn receiveData(uint8_t *buffer, size_t bytesToReceive)
+        {
+            std::lock_guard<std::mutex> lock(m_bufferMutex);
+            uint8_t *tempBuffer = new uint8_t[bytesToReceive];
+            m_valRead = recv(m_fdClient, tempBuffer, bytesToReceive, 0); //recv
+            if (m_valRead > 0) {
+                memcpy(buffer, tempBuffer, m_valRead);
+                delete[] tempBuffer;
+                return StatusReturn::Success;
+            }
+            delete[] tempBuffer;
+            return StatusReturn::NoData;
+        }
+
         StatusReturn connectToServer()
         {
-            if (connect(m_fdClient, (struct sockaddr*)&m_servAddr, sizeof(m_servAddr)) < 0) 
-                return StatusReturn::ConnectionError;
-            return StatusReturn::Success;
+            uint8_t i = 0;
+            while (++i < COUNT_REQUEST) {
+                if (connect(m_fdClient, (struct sockaddr*)&m_servAddr, sizeof(m_servAddr)) < 0) {
+                    usleep(10000);
+                    continue;
+                } else {
+                    m_isConnected = true;
+                    return StatusReturn::Success;
+                }
+            } 
+            return StatusReturn::ConnectionError;
         }
 
         void disconnect()
@@ -120,18 +160,44 @@ namespace NetLinux
 
         }
 
-        StatusReturn getReceivedData(uint8_t *userBuffer);
-
+        bool isRunning() const { return m_isRunning; }
+        bool isConnected() const { return m_isConnected; }
     protected:
+
+        void run()
+        {
+            while (m_isRunning) {
+                StatusReturn status = this->receiveData(m_rxBuffer, m_bufferSize);
+                if (StatusReturn::Success == status)
+                    m_neth->rxHandle(m_rxBuffer, m_valRead);
+                else 
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        }
+    };
+
+    /********************************************Server********************************************/
+    template<enum Protocol>
+    class NetworkServer 
+    {
+    private:
+        int m_port, m_serverSd, m_newSd, m_valRead, m_bufferSize, m_fdClient {0};
+        struct sockaddr_in m_servAddr;
+        NetHandlerInterface *m_neth;
+        uint8_t *m_rxBuffer;
+
+        std::mutex m_bufferMutex;
+        std::thread m_thread;
+        std::atomic_bool m_isRunning {false};
+
         void start() 
         {
             if (!m_isRunning) {
-                m_thread = std::thread(&NetworkServer<bufferSize>::run, this);
+                m_thread = std::thread(&run, this);
                 m_isRunning = true;
             }
         }
 
-        
         void stop() 
         {
             if (m_isRunning) {
@@ -139,104 +205,37 @@ namespace NetLinux
                 m_isRunning = false;
             }
         }
-    };
 
-    /********************************************Server********************************************/
-    template<int bufferSize>
-    class NetworkServer 
-    {
-    private:
-        int m_port, m_serverSd, m_newSd, m_fdClient {0};
-        struct sockaddr_in m_servAddr;
-        NetHandlerInterface *m_neth;
-        uint8_t m_rxBuffer[sizeof(StandDataPacket)];
-
-        std::string m_ip;
-        std::mutex m_bufferMutex;
-        std::thread m_thread;
-        std::atomic_bool m_isRunning {false};
-
-        StatusReturn receivePacket()
-        {
-            std::lock_guard<std::mutex> lock(m_bufferMutex);
-            ssize_t bytesRead = recv(m_newSd, m_rxBuffer, sizeof(StandDataPacket), 0);
-            if (bytesRead < 0) {
-                return StatusReturn::NetworkError;
-            } 
-            switch (reinterpret_cast<StandDataPacket*>(m_rxBuffer)->common.message)
-            {
-                case DATA_EXIST:
-                {
-                    m_neth->rxHandle(m_rxBuffer, sizeof(m_rxBuffer));
-                    break;
-                }
-                case NO_DATA_EXIST:
-                {
-                    return StatusReturn::NoData;
-                }
-            }
-            return StatusReturn::Success;
-        }
-
-        
-        StatusReturn listenPorts(int countRequests)
-        {
-            listen(m_serverSd, countRequests);
-            sockaddr_in newSockAddr;
-            socklen_t newSockAddrSize = sizeof(newSockAddr);
-            m_newSd = accept(m_serverSd, (sockaddr *)&newSockAddr, &newSockAddrSize);
-            if (m_newSd < 0)
-                return StatusReturn::SocketError;
-            return StatusReturn::Success;
-        }
-
-        
-        StatusReturn bindServer()
-        {
-            int bindStatus = bind(m_serverSd, (struct sockaddr*) &m_servAddr, sizeof(m_servAddr));
-            if (bindStatus < 0)
-                return StatusReturn::SocketError;
-            return StatusReturn::Success;
-        }
-
-        
-        void run() 
-        {
-            while (m_isRunning) {
-                StatusReturn status = this->receivePacket();
-                if (StatusReturn::Success == status)
-                    m_neth->txHandle(reinterpret_cast<uint8_t*>(&status));
-                else 
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-        }
     public:
-        NetworkServer(NetHandlerInterface *neth, int port) : m_neth(neth), m_port(port)
+        NetworkServer(NetHandlerInterface *neth, int port, int bufferSize) : 
+            m_neth(neth), m_port(port), m_bufferSize(bufferSize)
         {
+            if (m_bufferSize > 0)
+                m_rxBuffer = new uint8_t[m_bufferSize];
+            else 
+                throw std::runtime_error("Invalid buffer size");
             m_servAddr.sin_family = AF_INET;
             m_servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
             m_servAddr.sin_port = htons(port);
             m_serverSd = socket(AF_INET, SOCK_STREAM, 0);
 
             if (m_serverSd < 0)
-                throw std::runtime_error("StatusReturn establishing the server socket");
+                throw std::runtime_error("Error establishing the server socket");
 
             this->bindServer();
             this->listenPorts(1);
         }
-
-        
+      
         ~NetworkServer()
         {
-            if (this->isRunning())
-                this->stop();
+            this->stop();
             if (m_newSd)
                 close(m_newSd);
             if (m_serverSd)
                 close(m_serverSd);
+            delete[] m_rxBuffer;
         }
 
-        
         void startRx(void)
         {
             this->start();
@@ -248,7 +247,39 @@ namespace NetLinux
             this->stop();
         }
 
-        
+        StatusReturn receiveData(uint8_t *buffer, size_t bytesToReceive)
+        {
+            std::lock_guard<std::mutex> lock(m_bufferMutex);
+            uint8_t *tempBuffer = new uint8_t[bytesToReceive];
+            m_valRead = recv(m_fdClient, tempBuffer, bytesToReceive, 0); //recv
+            if (m_valRead > 0) {
+                memcpy(buffer, tempBuffer, m_valRead);
+                delete[] tempBuffer;
+                return StatusReturn::Success;
+            }
+            delete[] tempBuffer;
+            return StatusReturn::NoData;
+        }
+
+        StatusReturn listenPorts(int countRequests)
+        {
+            listen(m_serverSd, countRequests);
+            sockaddr_in newSockAddr;
+            socklen_t newSockAddrSize = sizeof(newSockAddr);
+            m_newSd = accept(m_serverSd, (sockaddr *)&newSockAddr, &newSockAddrSize);
+            if (m_newSd < 0)
+                return StatusReturn::SocketError;
+            return StatusReturn::Success;
+        }
+
+        StatusReturn bindServer()
+        {
+            int bindStatus = bind(m_serverSd, (struct sockaddr*) &m_servAddr, sizeof(m_servAddr));
+            if (bindStatus < 0)
+                return StatusReturn::SocketError;
+            return StatusReturn::Success;
+        }
+
         StatusReturn sendData(const void *data, size_t dataSize)
         {
             ssize_t bytesWritten = send(m_newSd, data, dataSize, 0);
@@ -258,24 +289,16 @@ namespace NetLinux
         }
 
         bool isRunning() const { return m_isRunning; }
-
-        StatusReturn getReceivedData(uint8_t *userBuffer);
     protected:
         
-        void start() 
+        void run()
         {
-            if (!m_isRunning) {
-                m_thread = std::thread(&NetworkServer<bufferSize>::run, this);
-                m_isRunning = true;
-            }
-        }
-
-        
-        void stop() 
-        {
-            if (m_isRunning) {
-                m_thread.join();
-                m_isRunning = false;
+            while (m_isRunning) {
+                StatusReturn status = this->receiveData(m_rxBuffer, m_bufferSize);
+                if (StatusReturn::Success == status)
+                    m_neth->rxHandle(m_rxBuffer, m_valRead);
+                else 
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         }
     };

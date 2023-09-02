@@ -4,7 +4,7 @@
 struct NetHandlerInterface
 {
     virtual void rxHandle(const unsigned char *data, unsigned int size) = 0;
-    virtual void txHandle(const unsigned char *data) = 0;
+    virtual void txHandle(const unsigned char *data, unsigned int size) = 0;
 };
 
 
