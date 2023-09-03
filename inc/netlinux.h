@@ -1,5 +1,5 @@
-#ifndef NETLINUX_H
-#define NETLINUX_H
+#ifndef NET_LINUX_H
+#define NET_LINUX_H
 
 #include <iostream>
 #include <sys/types.h>
@@ -20,6 +20,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <netinet/tcp.h>
 
 #include "NetHandlerInterface.hpp"
 
@@ -27,14 +28,6 @@
 
 namespace NetLinux
 {
-
-    using std::vector;
-    using std::string;
-    using std::thread;
-    using std::mutex;
-    using std::atomic_bool;
-    using std::size_t;
-
     enum StatusReturn {
         Success,
         NoData,
@@ -52,6 +45,12 @@ namespace NetLinux
         UDP
     };
     
+    struct KeepAliveConfiguration{
+        int ka_idle = 120;
+        int ka_intvl = 3;
+        int ka_cnt = 5;
+    };
+
     /********************************************Client********************************************/
     template<enum Protocol>
     class NetworkClient
@@ -87,10 +86,8 @@ namespace NetLinux
         explicit NetworkClient(NetHandlerInterface *neth, const std::string &ip, int port, int bufferSize) : 
             m_neth(neth), m_ip(ip), m_port(port), m_bufferSize(bufferSize)
         {
-            if (m_bufferSize > 0)
-                m_rxBuffer = new uint8_t[m_bufferSize];
-            else 
-                throw std::runtime_error("Invalid buffer size");
+            if (m_bufferSize <= 0)
+                throw std::runtime_error("Invalid buffer size"); 
                 
             if ((m_fdClient = socket(AF_INET, SOCK_STREAM, 0)) < 0)
                 throw std::runtime_error("Failed to open socket!");
@@ -99,6 +96,7 @@ namespace NetLinux
             m_servAddr.sin_port = htons(m_port);
             if (inet_pton(AF_INET, m_ip.c_str(), &m_servAddr.sin_addr) <= 0)
                 throw std::runtime_error("Invalid address / Address not supported");
+            m_rxBuffer = new uint8_t[m_bufferSize];
         }
         
         ~NetworkClient()
@@ -160,8 +158,8 @@ namespace NetLinux
 
         }
 
-        bool isRunning() const { return m_isRunning; }
-        bool isConnected() const { return m_isConnected; }
+        bool isRunning() const __attribute__((warn_unused_result)) { return m_isRunning; }
+        bool isConnected() const __attribute__((warn_unused_result)) { return m_isConnected; }
     protected:
 
         void run()
@@ -181,11 +179,12 @@ namespace NetLinux
     class NetworkServer 
     {
     private:
-        int m_port, m_serverSd, m_newSd, m_valRead, m_bufferSize, m_fdClient {0};
-        struct sockaddr_in m_servAddr;
+        int m_port{}, m_serverSd{}, m_newSd{}, m_valRead{}, m_bufferSize{}, m_fdClient {0};
+        struct sockaddr_in m_servAddr{};
         NetHandlerInterface *m_neth;
         uint8_t *m_rxBuffer;
-
+        KeepAliveConfiguration m_kaConfig;
+        
         std::mutex m_bufferMutex;
         std::thread m_thread;
         std::atomic_bool m_isRunning {false};
@@ -207,12 +206,10 @@ namespace NetLinux
         }
 
     public:
-        NetworkServer(NetHandlerInterface *neth, int port, int bufferSize) : 
+        explicit NetworkServer(NetHandlerInterface *neth, int port, int bufferSize) : 
             m_neth(neth), m_port(port), m_bufferSize(bufferSize)
         {
-            if (m_bufferSize > 0)
-                m_rxBuffer = new uint8_t[m_bufferSize];
-            else 
+            if (m_bufferSize <= 0)
                 throw std::runtime_error("Invalid buffer size");
             m_servAddr.sin_family = AF_INET;
             m_servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -221,9 +218,7 @@ namespace NetLinux
 
             if (m_serverSd < 0)
                 throw std::runtime_error("Error establishing the server socket");
-
-            this->bindServer();
-            this->listenPorts(1);
+            m_rxBuffer = new uint8_t[m_bufferSize];
         }
       
         ~NetworkServer()
@@ -274,7 +269,9 @@ namespace NetLinux
 
         StatusReturn bindServer()
         {
-            int bindStatus = bind(m_serverSd, (struct sockaddr*) &m_servAddr, sizeof(m_servAddr));
+            int flag = 1;
+            int bindStatus = (bind(m_serverSd, (struct sockaddr*) &m_servAddr, sizeof(m_servAddr)) && 
+                              setsockopt(m_serverSd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)));
             if (bindStatus < 0)
                 return StatusReturn::SocketError;
             return StatusReturn::Success;
@@ -288,7 +285,20 @@ namespace NetLinux
             return StatusReturn::Success;
         }
 
-        bool isRunning() const { return m_isRunning; }
+        StatusReturn enableKeepAlive() {
+            int flag = 1;
+            if(setsockopt(m_serverSd, SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag)) == -1) 
+                return false;
+            if(setsockopt(m_serverSd, IPPROTO_TCP, TCP_KEEPIDLE, &m_kaConfig.ka_idle, sizeof(m_kaConfig.ka_idle)) == -1) 
+                return false;
+            if(setsockopt(m_serverSd, IPPROTO_TCP, TCP_KEEPINTVL, &m_kaConfig.ka_intvl, sizeof(m_kaConfig.ka_intvl)) == -1) 
+                return false;
+            if(setsockopt(m_serverSd, IPPROTO_TCP, TCP_KEEPCNT, &m_kaConfig.ka_cnt, sizeof(m_kaConfig.ka_cnt)) == -1) 
+                return false;
+            return true;
+        }
+
+        bool isRunning() const __attribute__((warn_unused_result)) { return m_isRunning; }
     protected:
         
         void run()
