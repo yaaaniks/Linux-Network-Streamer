@@ -109,9 +109,9 @@ namespace NetLinux
         {
             std::lock_guard<std::mutex> lock(m_bufferMutex);
             uint8_t *tempBuffer = new uint8_t[bytesToReceive];
-            m_valRead = recv(m_fdClient, tempBuffer, bytesToReceive, 0); //recv
+            m_valRead = recv(m_fdClient, buffer, bytesToReceive, 0); //recv
             if (m_valRead > 0) {
-                memcpy(buffer, tempBuffer, m_valRead);
+                // memcpy(buffer, tempBuffer, m_valRead);
                 delete[] tempBuffer;
                 return StatusReturn::Success;
             }
@@ -166,8 +166,10 @@ namespace NetLinux
         {
             while (m_isRunning) {
                 StatusReturn status = this->receiveData(m_rxBuffer, m_bufferSize);
-                if (StatusReturn::Success == status)
+                if (StatusReturn::Success == status) {
                     m_neth->rxHandle(m_rxBuffer, m_valRead);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
                 else 
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
@@ -288,14 +290,14 @@ namespace NetLinux
         StatusReturn enableKeepAlive() {
             int flag = 1;
             if(setsockopt(m_serverSd, SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag)) == -1) 
-                return false;
+                return StatusReturn::SocketError;
             if(setsockopt(m_serverSd, IPPROTO_TCP, TCP_KEEPIDLE, &m_kaConfig.ka_idle, sizeof(m_kaConfig.ka_idle)) == -1) 
-                return false;
+                return StatusReturn::SocketError;
             if(setsockopt(m_serverSd, IPPROTO_TCP, TCP_KEEPINTVL, &m_kaConfig.ka_intvl, sizeof(m_kaConfig.ka_intvl)) == -1) 
-                return false;
+                return StatusReturn::SocketError;
             if(setsockopt(m_serverSd, IPPROTO_TCP, TCP_KEEPCNT, &m_kaConfig.ka_cnt, sizeof(m_kaConfig.ka_cnt)) == -1) 
-                return false;
-            return true;
+                return StatusReturn::SocketError;
+            return StatusReturn::Success;
         }
 
         bool isRunning() const __attribute__((warn_unused_result)) { return m_isRunning; }
