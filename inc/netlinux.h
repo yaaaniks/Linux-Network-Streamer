@@ -194,7 +194,7 @@ namespace NetLinux
         void start() 
         {
             if (!m_isRunning) {
-                m_thread = std::thread(&run, this);
+                m_thread = std::thread(&NetworkServer::run, this);
                 m_isRunning = true;
             }
         }
@@ -225,11 +225,7 @@ namespace NetLinux
       
         ~NetworkServer()
         {
-            this->stop();
-            if (m_newSd)
-                close(m_newSd);
-            if (m_serverSd)
-                close(m_serverSd);
+            this->stopRx();
             delete[] m_rxBuffer;
         }
 
@@ -242,13 +238,17 @@ namespace NetLinux
         void stopRx(void)
         {
             this->stop();
+            if (m_newSd)
+                close(m_newSd);
+            if (m_serverSd)
+                close(m_serverSd);
         }
 
         StatusReturn receiveData(uint8_t *buffer, size_t bytesToReceive)
         {
             std::lock_guard<std::mutex> lock(m_bufferMutex);
             uint8_t *tempBuffer = new uint8_t[bytesToReceive];
-            m_valRead = recv(m_fdClient, tempBuffer, bytesToReceive, 0); //recv
+            m_valRead = recv(m_newSd, tempBuffer, bytesToReceive, 0); //recv
             if (m_valRead > 0) {
                 memcpy(buffer, tempBuffer, m_valRead);
                 delete[] tempBuffer;
@@ -309,8 +309,7 @@ namespace NetLinux
                 StatusReturn status = this->receiveData(m_rxBuffer, m_bufferSize);
                 if (StatusReturn::Success == status)
                     m_neth->rxHandle(m_rxBuffer, m_valRead);
-                else 
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
             }
         }
     };
