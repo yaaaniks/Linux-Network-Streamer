@@ -307,6 +307,11 @@ using namespace boost::placeholders;
 namespace ByteStorm 
 {
     io_service service;
+    boost::asio::ip::port_type port_number = 8081;
+
+    static void setPortNumber(uint16_t portNum) {
+        port_number = portNum;
+    }
 
     class ByteStormServer;
     
@@ -542,7 +547,7 @@ namespace ByteStorm
             (*b)->set_clients_changed();
     }
 
-    ip::tcp::acceptor acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), 8055));
+    ip::tcp::acceptor acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), port_number));
 
     template <typename ServerType>
     void handle_accept(ServerType client, const boost::system::error_code &err, NetHandlerInterface<ServerType> *neth) {
