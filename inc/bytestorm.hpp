@@ -307,9 +307,9 @@ using namespace boost::placeholders;
 namespace ByteStorm 
 {
     io_service service;
-    boost::asio::ip::port_type port_number = 8081;
+    int port_number = 8081;
 
-    static void setPortNumber(uint16_t portNum) {
+    static void setPortNumber(int portNum) {
         port_number = portNum;
     }
 
