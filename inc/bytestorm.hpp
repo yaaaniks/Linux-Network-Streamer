@@ -1,3 +1,5 @@
+#ifndef BYTE_STORM_HPP
+#define BYTE_STORM_HPP
 // #include <iostream>
 // #include <stdint.h>
 // #include <boost/noncopyable.hpp>
@@ -551,3 +553,5 @@ namespace ByteStorm
         acceptor.async_accept(new_client->sock(), boost::bind(ByteStorm::handle_accept<ServerType>, new_client, _1, neth));
     }
 }; // ByteStorm
+
+#endif // BYTE_STORM_HPP
