@@ -59,7 +59,7 @@ namespace NetLinux
         int m_status, m_valRead, m_port, m_bufferSize, m_fdClient = 0;
         struct sockaddr_in m_servAddr;
         uint8_t *m_rxBuffer;
-        NetHandlerInterface *m_neth;
+        NetHandlerInterface<int> *m_neth;
 
         std::string m_ip;
         std::mutex m_bufferMutex;
@@ -83,7 +83,7 @@ namespace NetLinux
         }
 
     public:
-        explicit NetworkClient(NetHandlerInterface *neth, const std::string &ip, int port, int bufferSize) : 
+        explicit NetworkClient(NetHandlerInterface<int> *neth, const std::string &ip, int port, int bufferSize) : 
             m_neth(neth), m_ip(ip), m_port(port), m_bufferSize(bufferSize)
         {
             if (m_bufferSize <= 0)
@@ -183,7 +183,7 @@ namespace NetLinux
     private:
         int m_port{}, m_serverSd{}, m_newSd{}, m_valRead{}, m_bufferSize{}, m_fdClient {0};
         struct sockaddr_in m_servAddr{};
-        NetHandlerInterface *m_neth;
+        NetHandlerInterface<int> *m_neth;
         uint8_t *m_rxBuffer;
         KeepAliveConfiguration m_kaConfig;
         
@@ -208,7 +208,7 @@ namespace NetLinux
         }
 
     public:
-        explicit NetworkServer(NetHandlerInterface *neth, int port, int bufferSize) : 
+        explicit NetworkServer(NetHandlerInterface<int> *neth, int port, int bufferSize) : 
             m_neth(neth), m_port(port), m_bufferSize(bufferSize)
         {
             if (m_bufferSize <= 0)

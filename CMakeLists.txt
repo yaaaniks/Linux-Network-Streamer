@@ -1,21 +1,34 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(netlinux VERSION 0.1 
-                 DESCRIPTION "Socket programming for RPi microcomputer")
+                 DESCRIPTION "Socket programming for RPi microcomputer"
+                 LANGUAGES CXX)
 
 set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h)
+                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h
+                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp)
 
-set(LIBS)
+find_package(Boost 1.83 QUIET REQUIRED COMPONENTS)
+
+if(NOT Boost_FOUND)
+        message(FATAL_ERROR "Boost Not found")
+endif()
+
+message("boost lib: ${Boost_LIBRARIES}")
+message("boost inc:${Boost_INCLUDE_DIR}")
+
+include_directories(${BOOST_INCLUDE_DIRS})
 
 if(UNIX AND NOT APPLE)
         set(THREADS_PREFER_PTHREAD_FLAG ON)
         find_package(Threads REQUIRED)
 endif()
 
-add_library(${PROJECT_NAME} STATIC ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h)
+add_library(${PROJECT_NAME} STATIC ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h
+                                   ${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h ${CMAKE_BINARY_DIR}/include/netlinux.h COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp ${CMAKE_BINARY_DIR}/include/bytestorm.hpp COPYONLY)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                         LINKER_LANGUAGE CXX
@@ -33,7 +46,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBS} "-static")
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/
         DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
 if(UNIX AND NOT APPLE)
         target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
 endif()
+
+add_subdirectory(example)
 
