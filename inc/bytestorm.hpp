@@ -143,14 +143,7 @@ namespace ByteStorm
             clientListChanged = false;
         }
 
-        void ping_() {
-            auto netPacket = new CommonPacket;
-            netPacket->err = 0;
-            netPacket->header = 0xABCDEFFF;
-            netPacket->message = Message::Ping;
-            write_(netPacket, sizeof(CommonPacket));
-            delete netPacket;
-        }
+        void ping_() {}
 
         void onCheckPing_() {
             boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
