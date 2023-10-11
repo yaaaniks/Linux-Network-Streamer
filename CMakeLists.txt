@@ -8,14 +8,16 @@ set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h
                  ${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp)
 
-find_package(Boost 1.83 QUIET REQUIRED COMPONENTS)
+include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+
+find_package(Boost 1.83 QUIET REQUIRED COMPONENTS date_time)
 
 if(NOT Boost_FOUND)
         message(FATAL_ERROR "Boost Not found")
 endif()
 
-message("boost lib: ${Boost_LIBRARIES}")
-message("boost inc:${Boost_INCLUDE_DIR}")
+message("Boost libraries: ${Boost_LIBRARIES}")
+message("Boost libraries are found in: ${Boost_INCLUDE_DIR}")
 
 include_directories(${BOOST_INCLUDE_DIRS})
 
@@ -29,22 +31,21 @@ add_library(${PROJECT_NAME} STATIC ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h ${CMAKE_BINARY_DIR}/include/netlinux.h COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp ${CMAKE_BINARY_DIR}/include/bytestorm.hpp COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp ${CMAKE_BINARY_DIR}/include/NetHandlerInterface.hpp COPYONLY)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
                         LINKER_LANGUAGE CXX
                         VERSION ${PROJECT_VERSION}
                         SOVERSION 1
                         PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h)
-target_include_directories(${PROJECT_NAME} PUBLIC
-                           ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCE_FILES})
 
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBS} "-static")
+target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBS})
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc/
-        DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/include)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc
+        DESTINATION ${CMAKE_BINARY_SOURCE_DIR}/inc)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
 if(UNIX AND NOT APPLE)
