@@ -22,12 +22,8 @@ using namespace boost::placeholders;
 namespace ByteStorm 
 {
     io_service service;
-    int port_number = 8081;
-
-    static void setPortNumber(int portNum) {
-        port_number = portNum;
-    }
-
+    volatile int port_number = 8081;
+    ip::tcp::acceptor acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), port_number));
     class ByteStormServer;
     
     template <typename ServerType>
@@ -220,8 +216,6 @@ namespace ByteStorm
         for( ClientVector::iterator b = clients.begin(), e = clients.end(); b != e; ++b)
             (*b)->set_clients_changed();
     }
-
-    ip::tcp::acceptor acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), port_number));
 
     template <typename ServerType>
     void handle_accept(ServerType client, const boost::system::error_code &err, NetHandlerInterface<ServerType> *neth) {
