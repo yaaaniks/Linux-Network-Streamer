@@ -1,2 +1,1 @@
-# RPi-Network-Streamer
-RPi
+# Linux-Network-Streamer
