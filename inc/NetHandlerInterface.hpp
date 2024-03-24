@@ -1,13 +1,17 @@
 #ifndef NET_HANDLER_INTERFACE_HPP
 #define NET_HANDLER_INTERFACE_HPP
 
-template <typename ServerType>
+template <typename T>
 struct NetHandlerInterface
 {
-    virtual void rxHandle(const unsigned char *data, unsigned int size) = 0;
-    virtual void txHandle(const unsigned char *data, unsigned int size) = 0;
-    virtual void setServer(ServerType server) = 0;
-};
+    virtual void handle(const unsigned char *data, unsigned int size) = 0;
+    void set(T ptr)
+    {
+        this->ptr = ptr;
+    }
 
+private:
+    T ptr{ nullptr };
+};
 
 #endif // NET_HANDLER_INTERFACE_HPP

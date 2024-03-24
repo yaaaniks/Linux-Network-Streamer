@@ -1,56 +1,69 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.23)
 
-project(netlinux VERSION 0.1 
-                 DESCRIPTION "Socket programming for RPi microcomputer"
-                 LANGUAGES CXX)
+project(bytestorm 
+        VERSION 0.1 
+        DESCRIPTION "Socket programming for RPi microcomputer"
+        LANGUAGES CXX)
 
-set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h
-                 ${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp)
+include(CTest)
+include(FindPkgConfig)
+enable_testing()
 
-include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+# Dependency flags
+set(Boost_USE_STATIC_LIBS ON)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 
-find_package(Boost 1.83 QUIET REQUIRED COMPONENTS date_time)
+# Constants
+set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+set(PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(CMAKE_CXX_STANDARD 23)
+
+# Exporting commands for clangd
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Find all .cpp files
+file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/*.cpp)
+file(GLOB HEADERS ${PROJECT_INCLUDE_DIR}/*.hpp ${PROJECT_INCLUDE_DIR}/*.h)
+
+find_package(Boost 1.84 QUIET REQUIRED COMPONENTS iostreams date_time)
 
 if(NOT Boost_FOUND)
         message(FATAL_ERROR "Boost Not found")
+        return()
 endif()
 
-message("Boost libraries: ${Boost_LIBRARIES}")
-message("Boost libraries are found in: ${Boost_INCLUDE_DIR}")
+message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
+message(STATUS "Boost libraries are found in: ${Boost_INCLUDE_DIR}")
 
-include_directories(${BOOST_INCLUDE_DIRS})
+include_directories(${PROJECT_NAME} ${PROJECT_INCLUDE_DIR} ${BOOST_INCLUDE_DIRS})
 
 if(UNIX AND NOT APPLE)
         set(THREADS_PREFER_PTHREAD_FLAG ON)
         find_package(Threads REQUIRED)
 endif()
 
-add_library(${PROJECT_NAME} STATIC ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h
-                                   ${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp)
-
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h ${CMAKE_BINARY_DIR}/include/netlinux.h COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp ${CMAKE_BINARY_DIR}/include/bytestorm.hpp COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp ${CMAKE_BINARY_DIR}/include/NetHandlerInterface.hpp COPYONLY)
 
-set_target_properties(${PROJECT_NAME} PROPERTIES
-                        LINKER_LANGUAGE CXX
-                        VERSION ${PROJECT_VERSION}
-                        SOVERSION 1
-                        PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/inc/netlinux.h)
+add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
 
-target_sources(${PROJECT_NAME} PRIVATE ${SOURCE_FILES})
+set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX
+                        VERSION ${PROJECT_VERSION} SOVERSION 1
+                        PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp)
 
+target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBS})
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/inc
-        DESTINATION ${CMAKE_BINARY_SOURCE_DIR}/inc)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
 if(UNIX AND NOT APPLE)
         target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
 endif()
 
-add_subdirectory(example)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
 
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_INCLUDE_DIR} ${Boost_INCLUDE_DIR})
+
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+
+include(CPack)
+
+
+add_subdirectory(example)
