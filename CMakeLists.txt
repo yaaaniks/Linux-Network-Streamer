@@ -43,6 +43,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp ${CMAKE_BINARY_DIR}/include/bytestorm.hpp COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp ${CMAKE_BINARY_DIR}/include/NetHandlerInterface.hpp COPYONLY)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
 

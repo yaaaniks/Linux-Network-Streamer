@@ -11,7 +11,7 @@ struct NetHandlerInterface
     }
 
 private:
-    T ptr{ nullptr };
+    T ptr;
 };
 
 #endif // NET_HANDLER_INTERFACE_HPP

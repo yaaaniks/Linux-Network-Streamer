@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(example 
+project(example_lns
         VERSION 0.1
         DESCRIPTION "Example usage of netlinux library"
         LANGUAGES CXX)
