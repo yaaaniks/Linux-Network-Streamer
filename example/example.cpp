@@ -1,26 +1,31 @@
-#include "bytestorm.hpp"
-#include "NetHandlerInterface.hpp"
+#include "bytestorm_boost_test.hpp"
+#include "handler_base.hpp"
+#include <iostream>
 
-class TestServer : public NetHandlerInterface<ByteStorm::client_ptr>
+using namespace ByteStorm;
+class TestServer : public HandlerBase<TCPConnection>
 {
 private:
     /* data */
 public:
-    TestServer(int a);
-    ~TestServer();
+    TestServer(std::uint8_t a) : HandlerBase<TCPConnection>(a) {}
+    ~TestServer() {};
 
 protected:
-    [[maybe_unused]] void handle(const unsigned char *data, unsigned int size) override {}
+    [[maybe_unused]] virtual void handle(std::unique_ptr<std::uint8_t[]> &p, const size_t size) override
+    {
+        std::cout << "Received " << size;
+    }
 };
-
-TestServer::TestServer(int a) {}
-
-TestServer::~TestServer() {}
 
 int main(int argc, char *argv[])
 {
-    TestServer testServer(5);
-    ByteStorm::client_ptr new_ptr = ByteStorm::ByteStorm::new_(&testServer);
+    TestServer serv(2);
+    ByteStormBoost bs(8081, 21);
+    auto netServer = bs.create(21, &serv);
+    bs.acc->async_accept(*netServer->getSocket(),
+                         boost::bind(&ByteStormBoost::handle_accept, &bs, netServer, _1, &serv));
+    bs.service.run();
     while (true) {}
     return 0;
 }
