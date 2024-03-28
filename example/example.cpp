@@ -1,26 +1,33 @@
 #include "bytestorm.hpp"
-#include "NetHandlerInterface.hpp"
+#include "handler_base.hpp"
+#include <iostream>
 
-class TestServer : public NetHandlerInterface<ByteStorm::client_ptr>
+using namespace ByteStorm;
+class TestServer : public HandlerBase<ByteStormUnix>
 {
 private:
     /* data */
 public:
-    TestServer(int a);
-    ~TestServer();
+    TestServer(std::uint8_t a) : HandlerBase<ByteStormUnix>(a) {}
+    ~TestServer() {};
 
 protected:
-    [[maybe_unused]] void handle(const unsigned char *data, unsigned int size) override {}
+    [[maybe_unused]] void handle(std::unique_ptr<std::uint8_t[]> data, const size_t size) override
+    {
+        std::cout << "Received " << size;
+    }
 };
-
-TestServer::TestServer(int a) {}
-
-TestServer::~TestServer() {}
 
 int main(int argc, char *argv[])
 {
     TestServer testServer(5);
-    ByteStorm::client_ptr new_ptr = ByteStorm::ByteStorm::new_(&testServer);
-    while (true) {}
+    ByteStorm::ByteStormUnix bs(nullptr, 8095, 21);
+    bs.bind();
+    bs.listen(5);
+    bs.enableKeepAlive();
+    uint8_t buf[21];
+    while (true) {
+        bs.receive(buf, 21);
+    }
     return 0;
 }
