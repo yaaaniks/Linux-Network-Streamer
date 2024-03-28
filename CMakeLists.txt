@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.15)
 
 project(bytestorm 
         VERSION 0.1 
@@ -16,7 +16,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 # Constants
 set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 set(PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 17)
 
 # Exporting commands for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -25,7 +25,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/*.cpp)
 file(GLOB HEADERS ${PROJECT_INCLUDE_DIR}/*.hpp ${PROJECT_INCLUDE_DIR}/*.h)
 
-find_package(Boost 1.84 QUIET REQUIRED COMPONENTS iostreams date_time)
+find_package(Boost 1.83 QUIET REQUIRED COMPONENTS iostreams date_time)
 
 if(NOT Boost_FOUND)
         message(FATAL_ERROR "Boost Not found")
@@ -43,7 +43,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp ${CMAKE_BINARY_DIR}/include/bytestorm.hpp COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/NetHandlerInterface.hpp ${CMAKE_BINARY_DIR}/include/NetHandlerInterface.hpp COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/handler_base.hpp ${CMAKE_BINARY_DIR}/include/handler_base.hpp COPYONLY)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
 
