@@ -57,12 +57,12 @@ private:
 
 public:
     ByteStormUnix() = default;
-    ByteStormUnix(HandlerBase<ByteStormUnix> *h, int p, int bufferSize = kDefaultBufferSize);
+    ByteStormUnix(ProcessorBase<ByteStormUnix> *processor, int p, int bufferSize = kDefaultBufferSize);
     ~ByteStormUnix();
 
     void flush() override;
 
-    Status send(std::unique_ptr<std::uint8_t> data, const size_t size) override;
+    Status send(std::unique_ptr<std::uint8_t[]> &data, const size_t size) override;
     Status receive(size_t size);
     Status listen(int count = kMaxCountListen);
     Status bind();

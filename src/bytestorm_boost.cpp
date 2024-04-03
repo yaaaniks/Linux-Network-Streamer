@@ -1,97 +1,134 @@
-// #include "bytestorm_boost.hpp"
+#include "bytestorm_boost.hpp"
 
-// using namespace ByteStorm;
+#include <iostream>
+#include <memory>
 
-// client_ptr create(HandlerInterface<client_ptr> *neth)
-// {
-//     std::cout << "[info]: Creating server for new client" << std::endl;
-//     client_ptr new_cp(new ByteStorm(neth));
+using namespace ByteStorm;
 
-//     return new_cp;
-// }
+TCPConnection::TCPConnection(io_service &service, size_t transfer_size, ProcessorBase<TCPConnection> *processor)
+    : ByteStormBase(processor),
+      timer(service),
+      sock(service),
+      transfer_size(transfer_size)
+{}
 
-// ByteStormBoost::ByteStormBoost(HandlerInterface<client_ptr> *h, int p, io_service &service)
-//     : ByteStormBase(h, p),
-//       m_socket(service),
-//       m_deadlineTimer(service),
-//       acceptor( service, ip::tcp::endpoint(ip::tcp::v4(), kPortNumber) )
-// {
-//     m_started = false;
-//     clientListChanged = false;
-// }
+TCPConnection::~TCPConnection()
+{
+    sock.close();
+}
 
-// ByteStorm::~ByteStorm() {}
+void TCPConnection::read()
+{
+    boost::asio::socket_base::bytes_readable command(true);
+    sock.io_control(command);
+    std::size_t bytes_readable = command.get();
+    async_read(sock, read_buffer, transfer_at_least(transfer_size), this->bind(&TCPConnection::read_complete, _1, _2));
+}
 
-// void ByteStorm::start()
-// {
-//     m_started = true;
-//     clients.push_back(shared_from_this());
-//     this->onConnect_();
-//     m_lastPing = boost::posix_time::microsec_clock::local_time();
-//     // first, we wait for client to login
-//     read_();
-// }
+void TCPConnection::read_complete(const Error &err, size_t bytes_transferred)
+{
+    auto ptr = std::make_unique<std::uint8_t[]>(bytes_transferred);
+    std::memcpy(ptr.get(), read_buffer.data().data(), bytes_transferred);
 
-// void ByteStorm::stop()
-// {
-//     if (!m_started) return;
-//     m_started = false;
-//     m_socket.close();
+    std::cout << "[info] | TCPConnection: Bytes received: " << bytes_transferred << std::endl;
+    if (processor) { processor->process(ptr, bytes_transferred); }
 
-//     client_ptr self = shared_from_this();
-//     client_vector::iterator it = std::find(clients.begin(), clients.end(), self);
-//     clients.erase(it);
-//     updateClientList();
-// }
+    this->check();
+    read_buffer.consume(bytes_transferred);
 
-// void ByteStorm::onRead_(const error_code &err, size_t bytes)
-// {
-//     if (err)
-//     {
-//         std::cerr << ">>[info] Error is occured while reading with code: " << err << std::endl;
-//         std::cerr << ">>[info] Stop this client with IP " << clientIP << std::endl;
-//         stop();
-//     }
-//     if (!started()) { return; }
+    read();
+}
 
-//     if (bytes <= 0)
-//     {
-//         std::cerr << ">>[info] There is nothing to receive." << std::endl;
-//         return;
-//     }
-//     if (m_neth == nullptr)
-//     {
-//         std::cerr << ">>[info] NetHandler is not set. Skipped query." << std::endl;
-//         return;
-//     }
+void TCPConnection::write(std::unique_ptr<std::uint8_t[]> &data, const size_t size)
+{
+    if (!connected || size == 0) { return; }
+    std::cout << "[info] | TCPConnection: Preparing sending query with size: " << size << std::endl;
+    std::ostream os{ &write_buffer }; 
+    
+    for (int i = 0; i < size; i++) { os << data[i]; }   
+    data.release();
+    
+    async_write(sock, write_buffer, transfer_exactly(size), this->bind(&TCPConnection::write_complete, _1, _2));
+}
 
-//     std::cout << ">>[info] Bytes received: " << bytes << std::endl;
-//     m_neth->handle(reinterpret_cast<uint8_t *>(m_rxBuffer.data()), bytes);
-// }
+void TCPConnection::write_complete(const Error &err, size_t bytes_transferred)
+{
+    std::cout << "[info] | TCPConnection: Bytes sent: " << bytes_transferred << std::endl;
+    if (bytes_transferred) { write_buffer.consume(bytes_transferred); }
+    this->flush();
+}
 
-// void ByteStorm::onConnect_()
-// {
-//     clientIP = m_socket.remote_endpoint().address().to_string();
-//     std::cout << ">>[info] Client with IP " << clientIP << " is connected." << std::endl;
-//     m_lastPing = boost::posix_time::microsec_clock::local_time();
-//     updateClientList();
-// }
+Status TCPConnection::send(std::unique_ptr<std::uint8_t[]> &data, const size_t size)
+{
+    this->write(data, size);
+    return Status::OK;
+}
 
-// void ByteStorm::onCheckPing_()
-// {
-//     boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
-//     if ((now - m_lastPing).total_milliseconds() > 15000)
-//     {
-//         std::cout << ">>[INFO] Stopping " << clientIP
-//                   << " - no ping in time. Difference between pings: " << (now - m_lastPing).total_milliseconds()
-//                   << std::endl;
-//         stop();
-//     }
-//     m_lastPing = boost::posix_time::microsec_clock::local_time();
-// }
+void TCPConnection::check()
+{
+    // timer.expires_from_now(boost::posix_time::millisec(5));
+    // timer.async_wait(this->bind(&TCPConnection::on_check));
+}
 
-// void ByteStorm::postCheckPing_()
-// {
-//     m_deadlineTimer.expires_from_now(boost::posix_time::millisec(5));
-//     m_deadlineTimer.async_wait(bindMemberFunction(&me::onCheckPing_));
-// }
+void TCPConnection::on_check()
+{
+    // boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+    // if ((now - last_ping).total_milliseconds() > 15000)
+    // {
+    //     std::cout << "[warn] | TCPConnection: On " << ip
+    //               << " - no ping in time. Difference: " << (now - last_ping).total_milliseconds() << std::endl;
+    // }
+    // last_ping = boost::posix_time::microsec_clock::local_time();
+}
+
+void TCPConnection::on_connect()
+{
+    connected = true;
+    ip = sock.remote_endpoint().address().to_string();
+    std::cout << "[info] | TCPConnection: Client with IP " << ip << " is connected." << std::endl;
+    this->last_ping = boost::posix_time::microsec_clock::local_time();
+    this->read();
+}
+
+// TODO: add method
+void TCPConnection::flush() {}
+
+ByteStormBoost::ByteStormBoost(int port, size_t buffer_size) : port(port), buffer_size(buffer_size)
+{
+    acc = new Acceptor(service, Endpoint(ip::tcp::v4(), port));
+}
+
+ByteStormBoost::~ByteStormBoost()
+{
+    delete acc;
+}
+
+Connection ByteStormBoost::create(size_t buffer_size, ProcessorBase<TCPConnection> *processor)
+{
+    Connection new_(new TCPConnection(service, buffer_size, processor));
+    return new_;
+}
+
+void ByteStormBoost::on_delete_connection(Connection &connection)
+{
+    std::cout << "[info] | ByteStromServer: Closing connection with IP " << connection->ip << std::endl;
+    Connections::iterator it = std::find(ByteStormBoost::connections.begin(), connections.end(), connection);
+    connections.erase(it);
+}
+
+void ByteStormBoost::handle_accept(Connection &connection, const Error &err, ProcessorBase<TCPConnection> *processor)
+{
+    connection->on_connect();
+
+    connections.push_back(connection);
+
+    auto ptr = connection.get();
+
+    if (processor) { processor->set(ptr); }
+
+    // connection->close.connect(boost::bind(&ByteStormBoost::on_delete_connection, this, connection));
+
+    auto new_client = ByteStormBoost::create(buffer_size, processor);
+
+    acc->async_accept(new_client->sock, boost::bind(&ByteStormBoost::handle_accept, this, new_client, _1, processor));
+}

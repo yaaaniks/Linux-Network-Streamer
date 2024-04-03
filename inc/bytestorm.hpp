@@ -13,8 +13,11 @@
 
 #include "bytestorm_boost.hpp"
 #include "bytestorm_unix.hpp"
+#include "processor_base.hpp"
 
 namespace ByteStorm
-{}; // namespace ByteStorm
+{
+    using Processor = ProcessorBase<TCPConnection>;
+}; // namespace ByteStorm
 
 #endif // BYTESTORM_HPP_INCLUDED

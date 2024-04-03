@@ -4,7 +4,8 @@
 
 using namespace ByteStorm;
 
-ByteStormUnix::ByteStormUnix(HandlerBase<ByteStormUnix> *h, int p, int bufferSize) : ByteStormBase<ByteStormUnix>(h, p)
+ByteStormUnix::ByteStormUnix(ProcessorBase<ByteStormUnix> *processor, int p, int bufferSize)
+    : ByteStormBase<ByteStormUnix>(processor)
 {
     if (bufferSize <= 0)
     {
@@ -23,7 +24,7 @@ ByteStormUnix::ByteStormUnix(HandlerBase<ByteStormUnix> *h, int p, int bufferSiz
 
 ByteStormUnix::~ByteStormUnix() {}
 
-Status ByteStormUnix::send(std::unique_ptr<std::uint8_t> data, const size_t size)
+Status ByteStormUnix::send(std::unique_ptr<std::uint8_t[]> &data, const size_t size)
 {
     ssize_t bytesWritten = ::send(clientDescription, data.release(), size, 0);
     if (bytesWritten < 0) { return Status::ErrorOnTx; }

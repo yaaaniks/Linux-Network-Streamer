@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(bytestorm 
         VERSION 0.1 
-        DESCRIPTION "Socket programming for RPi microcomputer"
+        DESCRIPTION "Socket programming for UNIX-based systems"
         LANGUAGES CXX)
 
 include(CTest)
@@ -23,7 +23,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Find all .cpp files
 file(GLOB SOURCES ${PROJECT_SOURCE_DIR}/*.cpp)
-file(GLOB HEADERS ${PROJECT_INCLUDE_DIR}/*.hpp ${PROJECT_INCLUDE_DIR}/*.h)
+file(GLOB HEADERS ${PROJECT_INCLUDE_DIR}/*.hpp ${PROJECT_INCLUDE_DIR}/*.h ${CMAKE_CURRENT_SOURCE_DIR}/common/processor_base.hpp)
 
 find_package(Boost 1.83 QUIET REQUIRED COMPONENTS iostreams date_time)
 
@@ -35,7 +35,7 @@ endif()
 message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
 message(STATUS "Boost libraries are found in: ${Boost_INCLUDE_DIR}")
 
-include_directories(${PROJECT_NAME} ${PROJECT_INCLUDE_DIR} ${BOOST_INCLUDE_DIRS})
+include_directories(${PROJECT_NAME} ${PROJECT_INCLUDE_DIR} ${BOOST_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/common)
 
 if(UNIX AND NOT APPLE)
         set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -43,7 +43,6 @@ if(UNIX AND NOT APPLE)
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/bytestorm.hpp ${CMAKE_BINARY_DIR}/include/bytestorm.hpp COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/inc/handler_base.hpp ${CMAKE_BINARY_DIR}/include/handler_base.hpp COPYONLY)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
 
@@ -59,7 +58,7 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_INCLUDE_DIR} ${Boost_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/common ${Boost_INCLUDE_DIR})
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

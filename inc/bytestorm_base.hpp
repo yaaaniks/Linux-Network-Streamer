@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "handler_base.hpp"
+#include "processor_base.hpp"
 
 namespace ByteStorm
 {
@@ -36,11 +36,11 @@ protected:
     static constexpr int kDefaultPort{ 8090 };
 
 public:
-    ByteStormBase(HandlerBase<T> *h = nullptr, int p = kDefaultPort) : handler(h), m_port(p) {}
+    ByteStormBase(ProcessorBase<T> *processor = nullptr) : processor(processor) {}
     ~ByteStormBase() {};
     virtual void flush() = 0;
 
-    virtual Status send(std::unique_ptr<std::uint8_t> data, const size_t size) = 0;
+    virtual Status send(std::unique_ptr<std::uint8_t[]> &data, const size_t size) = 0;
 
     [[maybe_unused]] inline bool isConnected() __attribute__((warn_unused_result))
     {
@@ -48,8 +48,7 @@ public:
     }
 
 protected:
-    int m_port;
-    HandlerBase<T> *handler;
+    ProcessorBase<T> *processor;
     std::atomic_bool connected{ false };
 };
 }; // namespace ByteStorm
