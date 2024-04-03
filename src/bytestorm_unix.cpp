@@ -4,7 +4,7 @@
 
 using namespace ByteStorm;
 
-ByteStormUnix::ByteStormUnix(HandlerBase<ByteStormUnix> *h[], int p, int bufferSize) : ByteStormBase<ByteStormUnix>(h, p)
+ByteStormUnix::ByteStormUnix(HandlerBase<ByteStormUnix> *h, int p, int bufferSize) : ByteStormBase<ByteStormUnix>(h, p)
 {
     if (bufferSize <= 0)
     {
@@ -23,7 +23,7 @@ ByteStormUnix::ByteStormUnix(HandlerBase<ByteStormUnix> *h[], int p, int bufferS
 
 ByteStormUnix::~ByteStormUnix() {}
 
-Status ByteStormUnix::send(std::unique_ptr<std::uint8_t[]> data, const size_t size)
+Status ByteStormUnix::send(std::unique_ptr<std::uint8_t> data, const size_t size)
 {
     ssize_t bytesWritten = ::send(clientDescription, data.release(), size, 0);
     if (bytesWritten < 0) { return Status::ErrorOnTx; }
@@ -32,17 +32,11 @@ Status ByteStormUnix::send(std::unique_ptr<std::uint8_t[]> data, const size_t si
 
 void ByteStormUnix::flush() {}
 
-Status ByteStormUnix::receive(uint8_t *buffer, size_t size)
+Status ByteStormUnix::receive(size_t size)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    bytesRx = recv(clientDescription, buffer, size, 0);
+    bytesRx = recv(clientDescription, &buffer[0], size, 0);
     if (bytesRx <= 0) { return Status::ErrorOnRx; }
-    for (uint8_t i = 0; i < kHandlerCount; i++)
-    {
-        // todo: add this 
-        // if (handlers[i]->at())
-        // if (handlers) {handlers->handle(std::make_unique<std::uint8_t>(buffer[0]), bytesRx);}
-    }
     return Status::OK;
 }
 

@@ -13,11 +13,8 @@
 
 #include "bytestorm_boost.hpp"
 #include "bytestorm_unix.hpp"
-#include "handler_base.hpp"
+
 namespace ByteStorm
-{
-    using UnixHandler = HandlerBase<ByteStormUnix>;
-    using BoostHandler = HandlerBase<ByteStormBoost>;
-}; // namespace ByteStorm
+{}; // namespace ByteStorm
 
 #endif // BYTESTORM_HPP_INCLUDED

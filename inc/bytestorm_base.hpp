@@ -34,14 +34,13 @@ class ByteStormBase
 {
 protected:
     static constexpr int kDefaultPort{ 8090 };
-    static constexpr size_t kHandlerCount{ 3 };
-    
+
 public:
-    ByteStormBase(HandlerBase<T> *h[] = nullptr, int p = kDefaultPort) : handlers(h), m_port(p) {}
-    virtual ~ByteStormBase() {};
+    ByteStormBase(HandlerBase<T> *h = nullptr, int p = kDefaultPort) : handler(h), m_port(p) {}
+    ~ByteStormBase() {};
     virtual void flush() = 0;
 
-    virtual Status send(std::unique_ptr<std::uint8_t[]> data, const size_t size) = 0;
+    virtual Status send(std::unique_ptr<std::uint8_t> data, const size_t size) = 0;
 
     [[maybe_unused]] inline bool isConnected() __attribute__((warn_unused_result))
     {
@@ -50,7 +49,7 @@ public:
 
 protected:
     int m_port;
-    HandlerBase<T> **handlers;
+    HandlerBase<T> *handler;
     std::atomic_bool connected{ false };
 };
 }; // namespace ByteStorm

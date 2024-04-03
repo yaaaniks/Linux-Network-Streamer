@@ -20,22 +20,21 @@ class HandlerBase
 {
 public:
     HandlerBase(std::uint8_t message) : id(message) {}
-    ~HandlerBase() {};
     inline bool at(std::uint8_t message)
     {
         return id == message;
     }
 
-    virtual void handle(std::unique_ptr<std::uint8_t[]> p, const size_t size) = 0;
+    virtual void handle(std::unique_ptr<std::uint8_t[]> &p, const size_t size) = 0;
 
-    void set(T ptr)
+    void set(T *ptr)
     {
         this->ptr = ptr;
     }
 
 private:
     std::uint8_t id;
-    T ptr;
+    T *ptr;
 };
 
 #endif // HANDLER_BASE_HPP_INCLUDED
